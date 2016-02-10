@@ -1,11 +1,9 @@
-﻿using System.Data.SqlClient;
+﻿using Microsoft.WindowsAzure.StorageClient;
 
 namespace Nuget.Server.AzureStorage
 {
     using AutoMapper;
     using Microsoft.Azure;
-    using Microsoft.WindowsAzure;
-    using Microsoft.WindowsAzure.Storage;
     using Microsoft.WindowsAzure.Storage.Blob;
     using Nuget.Server.AzureStorage.Domain.Services;
     using Nuget.Server.AzureStorage.Doman.Entities;
@@ -22,7 +20,8 @@ namespace Nuget.Server.AzureStorage
     /// </summary>
     public class AzureServerPackageRepository : IServerPackageRepository
     {
-        private readonly CloudStorageAccount _storageAccount;
+        private readonly Microsoft.WindowsAzure.Storage.CloudStorageAccount _storageAccount;
+        private readonly Microsoft.WindowsAzure.CloudStorageAccount _helper;
         private readonly CloudBlobClient _blobClient;
         private readonly IPackageLocator _packageLocator;
         private readonly IAzurePackageSerializer _packageSerializer;
@@ -39,12 +38,13 @@ namespace Nuget.Server.AzureStorage
             _packageLocator = packageLocator;
             _packageSerializer = packageSerializer;
             var azureConnectionString = CloudConfigurationManager.GetSetting("StorageConnectionString");
-            _storageAccount = CloudStorageAccount.Parse(azureConnectionString);
+            _storageAccount = Microsoft.WindowsAzure.Storage.CloudStorageAccount.Parse(azureConnectionString);
             _blobClient = _storageAccount.CreateCloudBlobClient();
+            _helper = Microsoft.WindowsAzure.CloudStorageAccount.Parse(azureConnectionString);
         }
         public AzureServerPackageRepository(IPackageLocator packageLocator, 
                                             IAzurePackageSerializer packageSerializer,
-                                            CloudStorageAccount storageAccount)
+                                            Microsoft.WindowsAzure.Storage.CloudStorageAccount storageAccount)
         {
             _packageLocator = packageLocator;
             _packageSerializer = packageSerializer;
@@ -121,10 +121,10 @@ namespace Nuget.Server.AzureStorage
         public void AddPackage(IPackage package)
         {
             var name = _packageLocator.GetContainerName(package);
+            name = name.Replace('.', '-');
             var container = _blobClient.GetContainerReference(name);
 
-            var exists = !container.CreateIfNotExists();
-
+            var exists = CreateIfNotExist(name);
             UpdateContainerMetadata(package, container, exists);
 
             var blobName = package.Version.ToString();
@@ -282,18 +282,13 @@ namespace Nuget.Server.AzureStorage
         public CloudBlockBlob GetBlob(IPackage package)
         {
             var name = _packageLocator.GetContainerName(package);
+            name = name.Replace('.', '-');
             var container = _blobClient.GetContainerReference(name);
 
-            if (container.Exists())
-            {
-                var blobName = _packageLocator.GetItemName(package);
-                var blob = container.GetBlockBlobReference(blobName);
-                return blob;
-            }
-            else
-            {
-                return null;
-            }
+            var blobName = _packageLocator.GetItemName(package);
+            var blob = container.GetBlockBlobReference(blobName);
+            return blob;
+
         }
 
         /// <summary>
@@ -308,6 +303,18 @@ namespace Nuget.Server.AzureStorage
                 Id = packageId,
                 Version = version,
             });
+        }
+
+        /// <summary>
+        /// Checks  if a container exists and creates if if it doesnt
+        /// </summary>
+        /// <param name="containerName">The container name in question</param>
+        /// <returns>True if the container was created, false else</returns>
+        public bool CreateIfNotExist(string containerName)
+        {
+            var cli = _helper.CreateCloudBlobClient();
+            var con = cli.GetContainerReference(containerName);
+            return con.CreateIfNotExist();
         }
     }
 }
