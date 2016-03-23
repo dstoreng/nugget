@@ -1,18 +1,11 @@
 ﻿using NuGet;
 using NuGet.Server;
-using NuGet.Server.DataServices;
 using NuGet.Server.Infrastructure;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Web.Routing;
 using System.Web;
 using System.Net;
-using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
-using Nuget.Server.AzureStorage.Domain.Services;
 using System.IO;
 
 namespace Nuget.Server.AzureStorage

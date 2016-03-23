@@ -1,4 +1,5 @@
-﻿using Microsoft.WindowsAzure.StorageClient;
+﻿using AutoMapper.Internal;
+using Microsoft.WindowsAzure.StorageClient;
 
 namespace Nuget.Server.AzureStorage
 {
@@ -115,7 +116,7 @@ namespace Nuget.Server.AzureStorage
         }
 
         /// <summary>
-        /// Adds the package.
+        /// Adds the package, deletes old packages if deleteOldPackages is enabled
         /// </summary>
         /// <param name="package">The package.</param>
         public void AddPackage(IPackage package)
@@ -172,12 +173,26 @@ namespace Nuget.Server.AzureStorage
         }
 
         /// <summary>
+        /// Gets the packages from the specified container
+        /// </summary>
+        public IQueryable<IPackage> GetPackages(string containerName)
+        {
+            return _blobClient
+                .GetContainerReference(containerName)
+                .ListBlobs()
+                .OfType<CloudBlockBlob>()
+                .Select(x => _packageSerializer.ReadFromMetadata(x))
+                .AsQueryable<IPackage>();
+        }
+
+        /// <summary>
         /// Removes the package.
         /// </summary>
         /// <param name="package">The package.</param>
         public void RemovePackage(IPackage package)
         {
             var name = _packageLocator.GetContainerName(package);
+            name = name.Replace('.', '-');
             var container = _blobClient.GetContainerReference(name);
 
             if (container.Exists())
